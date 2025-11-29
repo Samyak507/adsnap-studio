@@ -141,11 +141,11 @@ def main():
     initialize_session_state()
     
     # Sidebar for API key
-    with st.sidebar:
-        st.header("Settings")
-        api_key = st.text_input("Enter your API key:", value=st.session_state.api_key if st.session_state.api_key else "", type="password")
-        if api_key:
-            st.session_state.api_key = api_key
+    # with st.sidebar:
+    #     st.header("Settings")
+    #     api_key = st.text_input("Enter your API key:", value=st.session_state.api_key if st.session_state.api_key else "", type="password")
+    #     if api_key:
+    #         st.session_state.api_key = api_key
 
     # Main tabs
     tabs = st.tabs([
