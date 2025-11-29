@@ -1,16 +1,6 @@
-# services/generate_hd_image.py
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Union
 import requests
-import time
-
-DEFAULT_TIMEOUT = 15  # seconds
-RETRY_COUNT = 2
-RETRY_BACKOFF = 1.5  # multiply sleep by this on each retry
-
-def _mask_key(key: Optional[str]) -> str:
-    if not key:
-        return "<no-key>"
-    return f"{key[:4]}...{key[-4:]}"
+import json
 
 def generate_hd_image(
     prompt: str,
@@ -20,7 +10,7 @@ def generate_hd_image(
     aspect_ratio: str = "1:1",
     sync: bool = True,
     seed: Optional[int] = None,
-    negative_prompt: Optional[str] = None,
+    negative_prompt: str = "",
     steps_num: Optional[int] = None,
     text_guidance_scale: Optional[float] = None,
     medium: Optional[str] = None,
@@ -29,81 +19,75 @@ def generate_hd_image(
     content_moderation: bool = False,
     ip_signal: bool = False
 ) -> Dict[str, Any]:
+    """Generate HD image from prompt using Bria's text-to-image API.
+    
+    Args:
+        prompt: The prompt to generate images from
+        api_key: API key for authentication
+        model_version: Model version to use (default: "2.2")
+        num_results: Number of images to generate (1-4)
+        aspect_ratio: Image aspect ratio ("1:1", "2:3", "3:2", etc.)
+        sync: Whether to wait for results or get URLs immediately
+        seed: Optional seed for reproducible results
+        negative_prompt: Elements to exclude from generation
+        steps_num: Number of refinement iterations (20-50)
+        text_guidance_scale: How closely to follow text (1-10)
+        medium: Generation medium ("photography" or "art")
+        prompt_enhancement: Whether to enhance the prompt
+        enhance_image: Whether to enhance image quality
+        content_moderation: Whether to enable content moderation
+        ip_signal: Whether to flag potential IP content
+    """
+    
     if not prompt:
         raise ValueError("Prompt is required for image generation")
-
-    # prepare payload
+    
+    # Build request data with only provided parameters
     data = {
         "prompt": prompt,
         "num_results": max(1, min(num_results, 4)),
-        "sync": bool(sync),
+        "sync": sync,
+        "negative_prompt": negative_prompt
     }
-    if negative_prompt:
-        data["negative_prompt"] = negative_prompt
+    
+    # Add optional parameters only if they have valid values
     if aspect_ratio:
         data["aspect_ratio"] = aspect_ratio
     if seed is not None:
-        data["seed"] = int(seed)
+        data["seed"] = seed
     if steps_num is not None:
-        data["steps_num"] = max(20, min(int(steps_num), 50))
+        data["steps_num"] = max(20, min(steps_num, 50))
     if text_guidance_scale is not None:
-        data["text_guidance_scale"] = max(1.0, min(float(text_guidance_scale), 10.0))
+        data["text_guidance_scale"] = max(1.0, min(text_guidance_scale, 10.0))
     if medium:
         data["medium"] = medium
     if prompt_enhancement:
-        data["prompt_enhancement"] = True
+        data["prompt_enhancement"] = prompt_enhancement
     if enhance_image:
-        data["enhance_image"] = True
+        data["enhance_image"] = enhance_image
     if content_moderation:
-        data["content_moderation"] = True
+        data["content_moderation"] = content_moderation
     if ip_signal:
-        data["ip_signal"] = True
-
+        data["ip_signal"] = ip_signal
+    
     url = f"https://engine.prod.bria-api.com/v1/text-to-image/hd/{model_version}"
-
-    # Try headers many APIs accept either api_token or Authorization Bearer
     headers = {
-        "Accept": "application/json",
-        "Content-Type": "application/json",
+        'api_token': api_key,
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
     }
-    # Prefer the provider-specific header if expected; keep Authorization as fallback
-    if api_key:
-        headers["api_token"] = api_key
-        headers["Authorization"] = f"Bearer {api_key}"
-
-    # minimal retry
-    attempt = 0
-    backoff = 1.0
-    last_exc = None
-
-    while attempt <= RETRY_COUNT:
-        try:
-            # Don't print the API key — only masked form for debug
-            print(f"[generate_hd_image] Request to {url} attempt={attempt} api_key={_mask_key(api_key)}")
-            resp = requests.post(url, headers=headers, json=data, timeout=DEFAULT_TIMEOUT)
-            resp.raise_for_status()
-            # parse JSON (might raise)
-            return resp.json()
-        except requests.HTTPError as http_err:
-            # For 4xx errors, don't retry except maybe 429
-            status = getattr(http_err.response, "status_code", None)
-            text = getattr(http_err.response, "text", "")
-            if status and 400 <= status < 500 and status != 429:
-                raise Exception(f"HD image generation failed (HTTP {status}): {text}")
-            # else allow retry for 429/5xx/network
-            last_exc = http_err
-        except requests.RequestException as req_err:
-            last_exc = req_err
-        except ValueError as json_err:
-            # JSON decode error
-            raise Exception(f"HD image generation returned non-JSON response: {json_err}")
-
-        # retry backoff
-        attempt += 1
-        if attempt <= RETRY_COUNT:
-            sleep_time = backoff * (RETRY_BACKOFF ** attempt)
-            print(f"[generate_hd_image] transient error: {last_exc}. Retrying in {sleep_time:.1f}s...")
-            time.sleep(sleep_time)
-
-    # all retries failed
-    raise Exception(f"HD image generation failed after {RETRY_COUNT+1} attempts: {last_exc}")
+    
+    try:
+        print(f"Making request to: {url}")
+        print(f"Headers: {headers}")
+        
+        response = requests.post(url, headers=headers, json=data)
+        response.raise_for_status()
+        
+        print(f"Response status: {response.status_code}")
+        print(f"Response body: {response.text}")
+        
+        return response.json()
+        
+    except Exception as e:
+        raise Exception(f"HD image generation failed: {str(e)}") 
