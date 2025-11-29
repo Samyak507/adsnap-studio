@@ -1,0 +1,41 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*$py.class
+
+# ---- Virtual Environment ----
+venv/
+env/
+.venv/
+.env/
+
+# ---- Environment Files ----
+.env
+.env.local
+.env.*.local
+*.env
+
+# ---- IDE / Editor ----
+.vscode/
+.idea/
+
+# ---- Distribution / Packaging ----
+build/
+dist/
+*.egg-info/
+
+# ---- Logs ----
+*.log
+
+# ---- OS Files ----
+.DS_Store
+Thumbs.db
+
+# ---- Cache ----
+.cache/
+.mypy_cache/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# ---- Other ----
+*.sqlite3
